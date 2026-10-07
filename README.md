@@ -36,33 +36,42 @@ Verify
   ↓
 Complete
 
-The current implementation has already established the execution environment required for this agent loop.
+The current implementation separates the agent layer from the deterministic computer-interaction tools.
 
 The current architecture is:
 
 User Goal
     ↓
-Agent Layer
+TaskPilot Agent
     ↓
-Tool Selection
+Browser Tool
     ↓
-Browser Tools
+Invoice Portal
     ↓
-Local Company Applications
+Extract Invoice Data
     ↓
-Observation
+Finance Tool
     ↓
-Verification
+Finance System
     ↓
-Result
+Independent Verifier
+    ↓
+Verified Result
 
 The main engineering principle is to separate reasoning from execution.
 
-The future LLM agent will be responsible for understanding the task, planning actions, selecting tools, and deciding what to do next.
+The current TaskPilot agent is responsible for:
 
-The tools will be responsible for actually interacting with the computer environment.
+- Understanding the requested task
+- Creating a task plan
+- Calling the appropriate tools
+- Passing data between tools
+- Checking whether each major operation succeeded
+- Returning the final task status
 
-The verification layer will independently determine whether the requested outcome was achieved.
+The deterministic tools are responsible for actually interacting with the computer environment.
+
+The verification layer independently determines whether the requested outcome was achieved.
 
 ## Current Prototype Environment
 
@@ -126,7 +135,89 @@ The browser automation layer can currently:
 
 Chromium is used as the browser controlled by Playwright.
 
+## Current Agent Layer
+
+The TaskPilot agent is implemented in:
+
+src/agent/agent.py
+
+The agent currently provides the following operations:
+
+### Understand
+
+The agent receives a natural-language task such as:
+
+"Process invoice INV-1042"
+
+and stores the task as the current goal.
+
+### Plan
+
+The agent creates a four-step execution plan:
+
+1. Find the requested invoice
+2. Extract invoice details
+3. Enter invoice details into the finance system
+4. Verify the saved invoice
+
+### Find Invoice
+
+The agent calls the Browser Tool to retrieve invoices from the Invoice Portal.
+
+It then searches the structured invoice data for the requested invoice number.
+
+For example:
+
+INV-1042
+
+is resolved to:
+
+Company: Acme Corp
+Invoice: INV-1042
+Date: 2026-10-05
+Amount: 48500
+Due Date: 2026-10-20
+
+### Execute
+
+The agent passes the discovered invoice to the Finance Tool.
+
+The Finance Tool opens the Finance System, fills the form, submits the invoice, and returns the observed result.
+
+### Verify
+
+After the invoice is submitted, the agent calls the independent verification layer.
+
+The verifier checks the actual saved invoice rather than trusting only the Finance System success message.
+
+## Current Finance Tool
+
+The finance tool is implemented in:
+
+src/tools/finance_tool.py
+
+The finance tool uses Playwright to:
+
+1. Open the Finance System.
+2. Fill the company field.
+3. Fill the invoice number.
+4. Fill the amount.
+5. Fill the due date.
+6. Click Save Invoice.
+7. Observe the result.
+
+The current demonstration submits:
+
+Company: Acme Corp
+Invoice: INV-1042
+Amount: 48500
+Due Date: 2026-10-20
+
 ## Current Verification
+
+The verification layer is implemented in:
+
+src/verification/verifier.py
 
 The verification layer independently checks the Finance System after execution.
 
@@ -141,13 +232,57 @@ The current verification workflow does not simply trust the success message retu
 
 Instead, it opens the Finance System and checks whether the expected invoice actually exists in the Saved Invoices table.
 
+A successful verification produces:
+
+VERIFICATION: Invoice successfully verified
+
+## Current End-to-End Capability
+
+The current TaskPilot workflow is:
+
+User Task
+    ↓
+TaskPilotAgent
+    ↓
+Understand Task
+    ↓
+Create Plan
+    ↓
+Browser Tool
+    ↓
+Invoice Portal
+    ↓
+Find Requested Invoice
+    ↓
+Extract Invoice Data
+    ↓
+Finance Tool
+    ↓
+Finance System
+    ↓
+Save Invoice
+    ↓
+Independent Verifier
+    ↓
+Verify Saved Invoice
+    ↓
+Task Completed Successfully
+
+The current demonstration task is:
+
+Process invoice INV-1042
+
+A successful execution produces:
+
+TASKPILOT: TASK COMPLETED SUCCESSFULLY
+
 ## Project Structure
 
 centrAlign-taskpilot/
 │
 ├── src/
 │   ├── agent/
-│   │   └──
+│   │   └── agent.py
 │   │
 │   ├── environment/
 │   │   ├── invoice_portal.py
@@ -163,6 +298,7 @@ centrAlign-taskpilot/
 │   └── main.py
 │
 ├── tests/
+│   └── test_agent.py
 │
 ├── data/
 │
@@ -171,9 +307,8 @@ centrAlign-taskpilot/
 ├── .git/
 │
 ├── .gitignore
-│
+├── pytest.ini
 ├── README.md
-│
 └── requirements.txt
 
 The .venv and .git directories are local/project infrastructure and are not committed to the repository.
@@ -226,10 +361,16 @@ Install the project dependencies:
 
 pip install -r requirements.txt
 
-The current requirements are:
+The main runtime requirements are:
 
 Flask==3.1.3
 playwright==1.63.0
+
+Pytest is also used for automated testing.
+
+Install Pytest with:
+
+pip install pytest
 
 Install the Playwright Chromium browser:
 
@@ -273,7 +414,7 @@ http://127.0.0.1:8001
 
 Keep this terminal running.
 
-## Running Browser Observation
+## Running the Browser Tool
 
 Open another terminal and activate the virtual environment.
 
@@ -291,7 +432,7 @@ The result is converted into structured data containing:
 - amount
 - due_date
 
-## Running Browser Execution
+## Running the Finance Tool
 
 Run:
 
@@ -307,14 +448,7 @@ The finance tool uses Playwright to:
 6. Click Save Invoice.
 7. Observe the result.
 
-The current demonstration submits:
-
-Company: Acme Corp
-Invoice: INV-1042
-Amount: 48500
-Due Date: 2026-10-20
-
-## Running Verification
+## Running the Verifier
 
 Run:
 
@@ -326,33 +460,82 @@ A successful verification produces:
 
 VERIFICATION: Invoice successfully verified
 
-## Current End-to-End Capability
+## Running TaskPilot
 
-The current deterministic workflow is:
+Make sure both local applications are running:
 
-Invoice Portal
-    ↓
-Playwright
-    ↓
-Read invoice information
-    ↓
-Finance Tool
-    ↓
-Open Finance System
-    ↓
-Fill invoice information
-    ↓
-Submit invoice
-    ↓
-Verification
-    ↓
-Confirm saved invoice
+Terminal 1:
 
-The browser automation and verification components have been tested successfully in the WSL environment.
+python src/environment/invoice_portal.py
+
+Terminal 2:
+
+python src/environment/finance_app.py
+
+Then run the TaskPilot agent from another terminal:
+
+python src/main.py
+
+The current demonstration task is:
+
+Process invoice INV-1042
+
+A successful run performs the complete workflow:
+
+1. Understand the task.
+2. Create an execution plan.
+3. Find INV-1042 using the Browser Tool.
+4. Extract the invoice information.
+5. Save the invoice using the Finance Tool.
+6. Verify the saved invoice independently.
+7. Report successful completion.
+
+## Automated Testing
+
+The project uses Pytest.
+
+Pytest is configured through:
+
+pytest.ini
+
+The configuration adds the src directory to the Python import path.
+
+Run all tests with:
+
+pytest
+
+The current test suite contains five tests.
+
+The tests currently verify:
+
+1. The agent understands the requested task.
+2. The agent creates the expected execution plan.
+3. The agent can find INV-1042.
+4. The agent correctly handles a missing invoice.
+5. The agent plan contains the verification step.
+
+Current test result:
+
+5 passed
+
+## Testing Philosophy
+
+Testing is being added alongside the agent implementation rather than only testing the final application.
+
+The project currently tests both normal behavior and basic failure behavior.
+
+The next testing stages will cover:
+
+- Finance tool failure
+- Verification failure
+- Browser failures
+- Recovery behavior
+- End-to-end execution
+- Multiple invoice scenarios
 
 ## Current Status
 
-Day 1 is focused on building the reliable execution environment before introducing the autonomous LLM agent.
+### Day 1 — Execution Environment
 
 Completed:
 
@@ -376,25 +559,68 @@ Completed:
 - Invoice submission implemented
 - Independent verification implemented
 
+### Day 2 — Agent Workflow
+
+Completed:
+
+- TaskPilot agent layer created
+- Task understanding implemented
+- Task planning implemented
+- Browser Tool connected to the agent
+- Invoice lookup implemented
+- Finance Tool connected to the agent
+- Invoice submission integrated into the agent workflow
+- Independent verification integrated into the agent workflow
+- End-to-end INV-1042 workflow successfully executed
+- Pytest configured
+- Automated agent tests created
+- Five automated tests passing
+- Day 2 changes committed to Git
+
+Current Day 2 Git commit:
+
+Implement TaskPilot agent workflow and tests
+
+## Current Limitations
+
+The current agent is a deterministic prototype.
+
+It does not yet use an LLM for dynamic reasoning or planning.
+
+The invoice number is currently derived from the task format:
+
+Process invoice INV-1042
+
+The current implementation therefore demonstrates the architecture and execution flow but does not yet provide general-purpose autonomous task planning.
+
+The recovery logic is also still limited.
+
+The next stage will make the agent more adaptive and observation-driven.
+
 ## Next Development Stage
 
-The next stage is to introduce the autonomous agent layer.
+The next development stage is to move from the current deterministic agent toward a more autonomous task worker.
 
-The deterministic tools will remain responsible for actual computer interaction.
+Planned improvements include:
 
-The LLM agent will be responsible for:
+- LLM-based task understanding
+- LLM-based planning
+- Dynamic tool selection
+- Agent state management
+- Observation-driven next actions
+- Failure detection
+- Retry and recovery
+- Human approval when required
+- Stronger verification
+- Evidence collection
+- Support for multiple task types
+- Agent evaluation
+- Improved logging
+- Better error handling
+- Demo interface
+- More comprehensive automated tests
 
-- Understanding the user's intended outcome
-- Breaking the goal into actions
-- Planning the task
-- Selecting appropriate tools
-- Interpreting observations
-- Deciding the next action
-- Handling failures
-- Attempting reasonable recovery
-- Maintaining task state
-- Requesting human input when required
-- Deciding when verification should occur
+## Target Autonomous Architecture
 
 The target architecture is:
 
@@ -424,15 +650,19 @@ Evidence
   ↓
 Complete
 
+The deterministic tools will remain responsible for actual computer interaction.
+
+The future agent will be responsible for deciding what action should happen next based on the goal and observations.
+
 ## Design Principles
 
 ### Separation of Reasoning and Execution
 
-The LLM should not directly perform arbitrary system operations.
-
-The LLM should decide what action is required and select an appropriate tool.
+The agent should decide what action is required and select an appropriate tool.
 
 The tool performs the actual operation.
+
+This prevents the reasoning layer from directly performing arbitrary computer operations.
 
 ### Observation
 
@@ -466,26 +696,19 @@ The prototype uses local simulated applications.
 
 Future API keys and secrets will be stored in environment variables and excluded from Git using .gitignore.
 
-## Future Improvements
+## Git History
 
-Planned improvements include:
+The current development history includes:
 
-- LLM-based task understanding
-- LLM-based planning
-- Dynamic tool selection
-- Agent state management
-- Observation-driven next actions
-- Failure detection
-- Retry and recovery
-- Human approval when required
-- Stronger verification
-- Evidence collection
-- Support for multiple task types
-- Agent evaluation
-- Improved logging
-- Better error handling
-- Demo interface
-- Comprehensive automated tests
+Day 1:
+
+Day 1: build browser automation and verification
+
+Day 2:
+
+Implement TaskPilot agent workflow and tests
+
+The working tree is kept clean after completed development milestones.
 
 ## Project Goal
 
