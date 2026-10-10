@@ -20,13 +20,17 @@ def main():
     execution=agent.execute()
 
     print("\nEXECUTION STATUS:",execution["status"])
+    print("AGENT STATE:",agent.state.value)
+
+    print("\nSTATE HISTORY:")
+    for event in agent.state_history:
+        print(f"{event['from']} -> {event['to']}")
 
     if execution["status"]=="completed":
         print("\nINVOICE FOUND:")
         print(execution["invoice"])
 
         print("\nFINANCE SYSTEM:",execution["finance_message"])
-
         print("VERIFIED:",execution["verified"])
 
         print("\nCOMPLETED STEPS:")
