@@ -375,7 +375,7 @@ Run the complete test suite with:
 pytest -v
 ```
 
-The current suite contains 21 tests covering:
+The current suite contains 24 tests covering:
 
 - Task understanding
 - Plan creation
@@ -394,8 +394,11 @@ The current suite contains 21 tests covering:
 - Stopping after the retry limit
 - Avoiding retries for missing invoices
 - Agent failure after lookup errors
+- Failure when the Finance System rejects a save
+- Failure when independent verification returns false
+- Failure when independent verification raises an exception
 
-**Latest verified test result: 21 passed.**
+**Latest verified test result: 24 passed.**
 
 Run the tests again after making changes to confirm that the suite still passes.
 
@@ -446,7 +449,20 @@ Implemented:
 - Dedicated recovery tests
 - State-history output in `src/main.py`
 
-The latest verified test suite contains 21 passing tests.
+At the end of Day 3, the test suite contained 21 passing tests.
+
+
+### Day 4 — Failure-Path Testing
+
+Completed:
+
+- Isolated invoice lookup unit tests from the live Invoice Portal
+- Added tests for finance-save rejection
+- Added tests for unsuccessful independent verification
+- Added tests for exceptions raised during verification
+- Confirmed that failed operations leave the agent in the `FAILED` state
+- Confirmed that verification is not recorded as completed when it fails
+- Verified the complete test suite: 24 passing tests
 
 ## Current Limitations
 
@@ -508,8 +524,9 @@ The existing development history includes:
 - `c9e25fd` — Day 1: build browser automation and verification
 - `5a029d7` — Implement TaskPilot agent workflow and tests
 - `528f7f4` — Update README with Day 2 agent workflow
+- `0116d83` — Add agent state management and bounded recovery
 
-The Day 3 changes will be committed after final verification.
+The Day 3 changes were committed as `0116d83` — Add agent state management and bounded recovery.
 
 ## Project Goal
 

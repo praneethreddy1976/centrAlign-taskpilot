@@ -85,3 +85,88 @@ def test_execute_fails_after_lookup_errors(monkeypatch):
     assert agent.state==AgentState.FAILED
     assert agent.lookup_attempts==2
     assert len(agent.recovery_history)==2
+
+
+def test_execute_fails_when_finance_save_is_rejected(monkeypatch):
+    agent=TaskPilotAgent()
+    agent.understand("Process invoice INV-1042")
+
+    invoice={
+        "company":"Acme Corp",
+        "invoice":"INV-1042",
+        "amount":48500,
+        "due_date":"2026-10-20"
+    }
+
+    monkeypatch.setattr(agent,"find_invoice",lambda invoice_number:invoice)
+    monkeypatch.setattr("agent.agent.save_invoice",lambda invoice:"Save rejected")
+
+    result=agent.execute()
+
+    assert result["status"]=="failed"
+    assert "could not be saved" in result["error"].lower()
+    assert agent.state==AgentState.FAILED
+    assert "Verify the saved invoice" not in agent.completed_steps
+
+
+def test_execute_fails_when_verification_returns_false(monkeypatch):
+    agent=TaskPilotAgent()
+    agent.understand("Process invoice INV-1042")
+
+    invoice={
+        "company":"Acme Corp",
+        "invoice":"INV-1042",
+        "amount":48500,
+        "due_date":"2026-10-20"
+    }
+
+    monkeypatch.setattr(agent,"find_invoice",lambda invoice_number:invoice)
+    monkeypatch.setattr(
+        "agent.agent.save_invoice",
+        lambda invoice:"Invoice saved successfully"
+    )
+    monkeypatch.setattr(
+        "agent.agent.verify_invoice",
+        lambda invoice:False
+    )
+
+    result=agent.execute()
+
+    assert result["status"]=="failed"
+    assert "verification failed" in result["error"].lower()
+    assert agent.state==AgentState.FAILED
+    assert "Verify the saved invoice" not in agent.completed_steps
+
+
+def test_execute_fails_when_verification_raises(monkeypatch):
+    agent=TaskPilotAgent()
+    agent.understand("Process invoice INV-1042")
+
+    invoice={
+        "company":"Acme Corp",
+        "invoice":"INV-1042",
+        "amount":48500,
+        "due_date":"2026-10-20"
+    }
+
+    monkeypatch.setattr(agent,"find_invoice",lambda invoice_number:invoice)
+    monkeypatch.setattr(
+        "agent.agent.save_invoice",
+        lambda invoice:"Invoice saved successfully"
+    )
+
+    def raise_verification_error(invoice):
+        raise RuntimeError("Finance page unavailable")
+
+    monkeypatch.setattr(
+        "agent.agent.verify_invoice",
+        raise_verification_error
+    )
+
+    result=agent.execute()
+
+    assert result["status"]=="failed"
+    assert "RuntimeError" in result["error"]
+    assert "Finance page unavailable" in result["error"]
+    assert agent.state==AgentState.FAILED
+    assert "Verify the saved invoice" not in agent.completed_steps

@@ -21,10 +21,21 @@ def test_agent_creates_plan():
     assert plan[-1]=="Verify the saved invoice"
 
 
-def test_agent_finds_invoice():
+def test_agent_finds_invoice(monkeypatch):
     agent=TaskPilotAgent()
-
     agent.understand("Process invoice INV-1042")
+
+    invoices=[
+        {
+            "company":"Acme Corp",
+            "invoice":"INV-1042",
+            "date":"2026-10-05",
+            "amount":48500,
+            "due_date":"2026-10-20"
+        }
+    ]
+
+    monkeypatch.setattr("agent.agent.get_invoices",lambda:invoices)
 
     invoice=agent.find_invoice("INV-1042")
 
@@ -35,10 +46,11 @@ def test_agent_finds_invoice():
     assert invoice["due_date"]=="2026-10-20"
 
 
-def test_agent_invoice_not_found():
+def test_agent_invoice_not_found(monkeypatch):
     agent=TaskPilotAgent()
-
     agent.understand("Process invoice INV-9999")
+
+    monkeypatch.setattr("agent.agent.get_invoices",lambda:[])
 
     invoice=agent.find_invoice("INV-9999")
 
@@ -51,4 +63,4 @@ def test_agent_plan_has_verification_step():
     agent.understand("Process invoice INV-1042")
     plan=agent.create_plan()
 
-    assert "Verify the saved invoice" in plan    
+    assert "Verify the saved invoice" in plan
