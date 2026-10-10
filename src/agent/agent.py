@@ -1,14 +1,17 @@
+import logging
 import re
 
 from tools.browser import get_invoices
 from tools.finance_tool import save_invoice
 from verification.verifier import verify_invoice
 from agent.state import AgentState, transition
+from observability import get_logger, log_event
 
 
 class TaskPilotAgent:
 
     def __init__(self):
+        self.logger=get_logger('taskpilot.agent')
         self.task=None
         self.plan=[]
         self.completed_steps=[]
@@ -27,6 +30,13 @@ class TaskPilotAgent:
             "from":previous_state.value,
             "to":self.state.value
         })
+        log_event(
+            self.logger,
+            logging.INFO,
+            "state_transition",
+            previous_state=previous_state.value,
+            next_state=self.state.value
+        )
 
     def _fail(self,message):
         self.error=message
@@ -39,6 +49,14 @@ class TaskPilotAgent:
             "error":message,
             "state":self.state.value
         }
+
+        log_event(
+            self.logger,
+            logging.ERROR,
+            "execution_failed",
+            reason=message,
+            state=self.state.value
+        )
 
         return self._last_result
 
@@ -139,6 +157,13 @@ class TaskPilotAgent:
             )
 
         invoice_number=match.group().upper()
+
+        log_event(
+            self.logger,
+            logging.INFO,
+            "execution_started",
+            invoice_number=invoice_number
+        )
 
         self._set_state(AgentState.RUNNING)
 
