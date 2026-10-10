@@ -30,6 +30,9 @@ The project is intentionally being developed as a working prototype before expan
 - Execution failure handling
 - Bounded retry logic for invoice lookup
 - Recovery-attempt logging
+- Structured JSON logging with timestamps and severity levels
+- Execution-start, state-transition, and failure events
+- Structured logging context for invoice execution
 - Protection against repeating a completed or failed execution
 - Automated tests using Pytest
 
@@ -244,12 +247,14 @@ centrAlign-taskpilot/
 │   │   └── finance_tool.py
 │   ├── verification/
 │   │   └── verifier.py
+│   ├── observability.py
 │   └── main.py
 ├── tests/
 │   ├── test_agent.py
 │   ├── test_agent_state.py
 │   ├── test_recovery.py
-│   └── test_state.py
+│   ├── test_state.py
+│   └── test_observability.py
 ├── data/
 ├── .gitignore
 ├── pytest.ini
@@ -375,7 +380,7 @@ Run the complete test suite with:
 pytest -v
 ```
 
-The current suite contains 24 tests covering:
+The current suite contains 28 tests covering:
 
 - Task understanding
 - Plan creation
@@ -397,8 +402,12 @@ The current suite contains 24 tests covering:
 - Failure when the Finance System rejects a save
 - Failure when independent verification returns false
 - Failure when independent verification raises an exception
+- JSON log formatting and required structured fields
+- Log records without optional context
+- Exception details in error logs
+- Structured event logging and attached context
 
-**Latest verified test result: 24 passed.**
+**Latest verified test result: 28 passed.**
 
 Run the tests again after making changes to confirm that the suite still passes.
 
@@ -464,6 +473,18 @@ Completed:
 - Confirmed that verification is not recorded as completed when it fails
 - Verified the complete test suite: 24 passing tests
 
+### Day 5 — Structured Logging and Observability
+
+Completed:
+
+- Added `src/observability.py` for structured JSON logging
+- Added a JSON formatter with timestamps, severity levels, logger names, and messages
+- Added support for event names and contextual fields
+- Added exception details to logs when available
+- Instrumented agent execution starts, state transitions, and failures
+- Added four observability tests
+- Verified the complete test suite: 28 passing tests
+
 ## Current Limitations
 
 The current agent is a deterministic prototype and does not yet use an LLM for dynamic reasoning or planning.
@@ -483,7 +504,7 @@ Potential future improvements include:
 - Safer recovery for additional failure types
 - Stronger verification and evidence collection
 - Support for multiple task types
-- Improved execution logging
+- Persistent execution history and audit records
 - More comprehensive end-to-end tests
 - Agent evaluation
 - Human approval for sensitive operations
@@ -525,6 +546,8 @@ The existing development history includes:
 - `5a029d7` — Implement TaskPilot agent workflow and tests
 - `528f7f4` — Update README with Day 2 agent workflow
 - `0116d83` — Add agent state management and bounded recovery
+- `2d7e670` — Add failure-path tests and update documentation
+- `0b9b524` — Add structured execution logging and observability tests
 
 The Day 3 changes were committed as `0116d83` — Add agent state management and bounded recovery.
 
