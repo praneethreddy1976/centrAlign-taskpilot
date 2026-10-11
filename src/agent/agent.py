@@ -255,12 +255,34 @@ class TaskPilotAgent:
 
             self._set_state(AgentState.VERIFYING)
 
-            verified=verify_invoice(invoice)
+            try:
+                verified=verify_invoice(invoice)
+            except Exception as exc:
+                result=self._fail(
+                    f"Invoice save was accepted, but verification errored: {type(exc).__name__}: {exc}"
+                )
+                result["save_outcome"]="accepted"
+                result["verification_status"]="error"
+                self._record_audit_event(
+                    "verification_error_after_save",
+                    save_outcome="accepted",
+                    verification_status="error",
+                    error=f"{type(exc).__name__}: {exc}"
+                )
+                return result
 
             if not verified:
-                return self._fail(
-                    "Invoice verification failed"
+                result=self._fail(
+                    "Invoice save was accepted, but verification failed"
                 )
+                result["save_outcome"]="accepted"
+                result["verification_status"]="failed"
+                self._record_audit_event(
+                    "verification_failed_after_save",
+                    save_outcome="accepted",
+                    verification_status="failed"
+                )
+                return result
 
             self.completed_steps.append(
                 "Verify the saved invoice"

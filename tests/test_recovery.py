@@ -134,8 +134,11 @@ def test_execute_fails_when_verification_returns_false(monkeypatch):
 
     assert result["status"]=="failed"
     assert "verification failed" in result["error"].lower()
+    assert result["save_outcome"]=="accepted"
+    assert result["verification_status"]=="failed"
     assert agent.state==AgentState.FAILED
     assert "Verify the saved invoice" not in agent.completed_steps
+    assert any(event["event"]=="verification_failed_after_save" for event in agent.execution_history)
 
 
 def test_execute_fails_when_verification_raises(monkeypatch):
