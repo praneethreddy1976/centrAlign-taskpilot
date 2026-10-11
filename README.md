@@ -503,6 +503,15 @@ Completed:
 
 **Current scope:** Execution history is stored in memory for the lifetime of the agent instance. Persistent audit storage across application restarts has not yet been implemented.
 
+### Day 7 — Verification Resource Cleanup
+
+Completed:
+
+- Ensured the Playwright browser is closed through a `finally` block, including when verification raises an exception
+- Preserved independent invoice verification behavior
+- Re-ran the complete test suite: 32 passing tests
+- Committed the change as `e19524f`
+
 ## Current Limitations
 
 The current agent is a deterministic prototype and does not yet use an LLM for dynamic reasoning or planning.
@@ -559,6 +568,7 @@ No real company credentials are required for the current demonstration. Future A
 
 The existing development history includes:
 
+- `e19524f` — Day 7: Ensure verifier browser cleanup on failure
 - `a7f0bee` — Day 6: Add execution audit history and tracking
 - `f427e76` — Day 5: Document observability improvements
 - `0b9b524` — Day 5: Add structured execution logging and observability tests
