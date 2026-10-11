@@ -1,5 +1,8 @@
+
 import logging
 import re
+import uuid
+from datetime import datetime, timezone
 
 from tools.browser import get_invoices
 from tools.finance_tool import save_invoice
@@ -7,11 +10,13 @@ from verification.verifier import verify_invoice
 from agent.state import AgentState, transition
 from observability import get_logger, log_event
 
-
 class TaskPilotAgent:
 
     def __init__(self):
         self.logger=get_logger('taskpilot.agent')
+        self.execution_id=str(uuid.uuid4())
+        self.started_at=datetime.now(timezone.utc).isoformat()
+        self.execution_history=[]
         self.task=None
         self.plan=[]
         self.completed_steps=[]
@@ -23,20 +28,57 @@ class TaskPilotAgent:
         self.recovery_history=[]
         self.lookup_attempts=0
 
-    def _set_state(self,next_state):
-        previous_state=self.state
-        self.state=transition(self.state,next_state)
-        self.state_history.append({
-            "from":previous_state.value,
-            "to":self.state.value
-        })
+
+    def _record_audit_event(self,event,**details):
+        timestamp=datetime.now(timezone.utc).isoformat()
+
+        record={
+            "execution_id":self.execution_id,
+            "timestamp":timestamp,
+            "event":event
+        }
+        record.update(details)
+        self.execution_history.append(record)
+
         log_event(
             self.logger,
             logging.INFO,
+            "audit_event",
+            **{
+                "execution_id":self.execution_id,
+                "timestamp":timestamp,
+                "audit_event":event,
+                **details
+            }
+        )
+
+
+    def _set_state(self,next_state):
+        previous_state=self.state
+        self.state=transition(self.state,next_state)
+
+        transition_record={
+            "from":previous_state.value,
+            "to":self.state.value
+        }
+        self.state_history.append(transition_record)
+
+        self._record_audit_event(
             "state_transition",
             previous_state=previous_state.value,
             next_state=self.state.value
         )
+
+        log_event(
+            self.logger,
+            logging.INFO,
+            "state_transition",
+            execution_id=self.execution_id,
+            previous_state=previous_state.value,
+            next_state=self.state.value
+        )
+
+
 
     def _fail(self,message):
         self.error=message
@@ -50,15 +92,24 @@ class TaskPilotAgent:
             "state":self.state.value
         }
 
+        self._record_audit_event(
+            "execution_finished",
+            status="failed",
+            failure_reason=message,
+            final_state=self.state.value
+        )
+
         log_event(
             self.logger,
             logging.ERROR,
             "execution_failed",
+            execution_id=self.execution_id,
             reason=message,
             state=self.state.value
         )
 
         return self._last_result
+
 
     def understand(self,task):
         if self.state!=AgentState.IDLE:
@@ -158,14 +209,23 @@ class TaskPilotAgent:
 
         invoice_number=match.group().upper()
 
+
+        self._record_audit_event(
+            "execution_started",
+            invoice_number=invoice_number,
+            started_at=self.started_at
+        )
+
         log_event(
             self.logger,
             logging.INFO,
             "execution_started",
+            execution_id=self.execution_id,
             invoice_number=invoice_number
         )
 
         self._set_state(AgentState.RUNNING)
+
 
         try:
             invoice=self._find_invoice_with_retry(invoice_number)
@@ -206,6 +266,7 @@ class TaskPilotAgent:
                 "Verify the saved invoice"
             )
 
+
             self._set_state(AgentState.COMPLETED)
 
             self._last_result={
@@ -217,7 +278,16 @@ class TaskPilotAgent:
                 "state":self.state.value
             }
 
+            self._record_audit_event(
+                "execution_finished",
+                status="completed",
+                final_state=self.state.value,
+                verified=True,
+                completed_steps=self.completed_steps.copy()
+            )
+
             return self._last_result
+
 
         except Exception as exc:
             return self._fail(

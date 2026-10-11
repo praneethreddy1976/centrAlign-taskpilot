@@ -485,6 +485,24 @@ Completed:
 - Added four observability tests
 - Verified the complete test suite: 28 passing tests
 
+### Day 6 — Execution History and Auditability
+
+Completed:
+
+- Added a unique execution ID to each agent instance
+- Recorded UTC timestamps for audit events
+- Added structured execution-history records containing event names and execution IDs
+- Recorded state transitions with previous and next states
+- Recorded execution-start events with the requested invoice number
+- Recorded final execution outcomes, including success status, verification status, and completed steps
+- Recorded failure outcomes with the failure reason and final agent state
+- Ensured repeated calls after execution completion or failure do not duplicate audit events
+- Added tests for unique execution IDs, successful and failed audit outcomes, and repeated execution behavior
+- Used mocked invoice lookup, finance submission, and verification in audit tests to avoid dependence on a running browser application
+- Verified the complete test suite: 32 passing tests
+
+**Current scope:** Execution history is stored in memory for the lifetime of the agent instance. Persistent audit storage across application restarts has not yet been implemented.
+
 ## Current Limitations
 
 The current agent is a deterministic prototype and does not yet use an LLM for dynamic reasoning or planning.
