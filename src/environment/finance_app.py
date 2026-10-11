@@ -80,9 +80,16 @@ def finance():
             "due_date":request.form["due_date"]
         }
 
-        saved_invoices.append(invoice)
+        invoice_number=invoice["invoice"].strip().upper()
 
-        message="Invoice saved successfully"
+        if any(
+            existing["invoice"].strip().upper()==invoice_number
+            for existing in saved_invoices
+        ):
+            message="Invoice already exists"
+        else:
+            saved_invoices.append(invoice)
+            message="Invoice saved successfully"
 
     return render_template_string(
         HTML,
