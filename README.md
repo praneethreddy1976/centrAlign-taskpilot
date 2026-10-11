@@ -327,7 +327,7 @@ Keep both applications running in separate terminals.
 ### Terminal 1 — Invoice Portal
 
 ```bash
-cd /home/praneeth_reddy/projects/centrAlign-taskpilot
+cd ~/projects/centrAlign-taskpilot
 source .venv/bin/activate
 python src/environment/invoice_portal.py
 ```
@@ -339,7 +339,7 @@ The application should be available at:
 ### Terminal 2 — Finance System
 
 ```bash
-cd /home/praneeth_reddy/projects/centrAlign-taskpilot
+cd ~/projects/centrAlign-taskpilot
 source .venv/bin/activate
 python src/environment/finance_app.py
 ```
@@ -355,7 +355,7 @@ Keep both terminals running while executing the agent and integration tests.
 Open a third terminal and run:
 
 ```bash
-cd /home/praneeth_reddy/projects/centrAlign-taskpilot
+cd ~/projects/centrAlign-taskpilot
 source .venv/bin/activate
 python src/main.py
 ```
