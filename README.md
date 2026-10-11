@@ -380,7 +380,7 @@ Run the complete test suite with:
 pytest -v
 ```
 
-The current suite contains 28 tests covering:
+The current suite contains 32 tests covering:
 
 - Task understanding
 - Plan creation
@@ -407,7 +407,7 @@ The current suite contains 28 tests covering:
 - Exception details in error logs
 - Structured event logging and attached context
 
-**Latest verified test result: 28 passed.**
+**Latest verified test result: 32 passed.**
 
 Run the tests again after making changes to confirm that the suite still passes.
 
@@ -559,13 +559,15 @@ No real company credentials are required for the current demonstration. Future A
 
 The existing development history includes:
 
-- `8d69565` — Initial project setup
-- `c9e25fd` — Day 1: build browser automation and verification
-- `5a029d7` — Implement TaskPilot agent workflow and tests
+- `a7f0bee` — Day 6: Add execution audit history and tracking
+- `f427e76` — Day 5: Document observability improvements
+- `0b9b524` — Day 5: Add structured execution logging and observability tests
+- `2d7e670` — Day 4: Add failure-path tests and update documentation
+- `0116d83` — Day 3: Add agent state management and bounded recovery
 - `528f7f4` — Update README with Day 2 agent workflow
-- `0116d83` — Add agent state management and bounded recovery
-- `2d7e670` — Add failure-path tests and update documentation
-- `0b9b524` — Add structured execution logging and observability tests
+- `5a029d7` — Day 2: Implement TaskPilot agent workflow and tests
+- `c9e25fd` — Day 1: Build browser automation and verification
+- `8d69565` — Initial project setup
 
 The Day 3 changes were committed as `0116d83` — Add agent state management and bounded recovery.
 
