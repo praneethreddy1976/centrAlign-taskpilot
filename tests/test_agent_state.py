@@ -250,7 +250,10 @@ def test_existing_mismatched_invoice_requires_review(monkeypatch):
 
     result=agent.execute()
 
-    assert result["status"]=="failed"
+    assert result["status"]=="needs_review"
+    assert result["state"]=="needs_review"
+    assert result["save_outcome"]=="already_exists"
+    assert result["verification_status"]=="failed"
     assert "human review required" in result["error"].lower()
     assert result["save_outcome"]=="already_exists"
     assert result["verification_status"]=="failed"
@@ -258,3 +261,128 @@ def test_existing_mismatched_invoice_requires_review(monkeypatch):
         event["event"]=="duplicate_invoice_mismatch"
         for event in agent.execution_history
     )
+
+def test_find_latest_invoice_by_company(monkeypatch):
+    invoices=[
+        {
+            "company":"Acme Corp",
+            "invoice":"INV-1038",
+            "date":"2026-09-15",
+            "amount":31200,
+            "due_date":"2026-09-30"
+        },
+        {
+            "company":"Beta Industries",
+            "invoice":"INV-2041",
+            "date":"2026-10-01",
+            "amount":67500,
+            "due_date":"2026-10-15"
+        },
+        {
+            "company":"Acme Corp",
+            "invoice":"INV-1042",
+            "date":"2026-10-05",
+            "amount":48500,
+            "due_date":"2026-10-20"
+        }
+    ]
+
+    monkeypatch.setattr(agent_module,"get_invoices",lambda:invoices)
+
+    agent=TaskPilotAgent()
+    invoice=agent.find_latest_invoice("Acme Corp")
+
+    assert invoice["invoice"]=="INV-1042"
+    assert agent.invoice==invoice
+
+def test_execute_latest_invoice_from_company(monkeypatch):
+    invoice={
+        "company":"Acme Corp",
+        "invoice":"INV-1042",
+        "date":"2026-10-05",
+        "amount":48500,
+        "due_date":"2026-10-20"
+    }
+
+    monkeypatch.setattr(
+        agent_module,
+        "get_invoices",
+        lambda:[invoice]
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "save_invoice",
+        lambda invoice:"Invoice saved successfully"
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "verify_invoice",
+        lambda invoice:True
+    )
+
+    agent=TaskPilotAgent()
+    agent.understand("Process the latest invoice from Acme Corp")
+    result=agent.execute()
+
+    assert result["status"]=="completed"
+    assert result["invoice"]["invoice"]=="INV-1042"
+    assert result["verified"] is True
+
+def test_execute_latest_invoice_unknown_company(monkeypatch):
+    invoices=[
+        {
+            "company":"Acme Corp",
+            "invoice":"INV-1042",
+            "date":"2026-10-05",
+            "amount":48500,
+            "due_date":"2026-10-20"
+        }
+    ]
+
+    monkeypatch.setattr(
+        agent_module,
+        "get_invoices",
+        lambda:invoices
+    )
+
+    agent=TaskPilotAgent()
+    agent.understand("Process the latest invoice from Unknown Corp")
+    result=agent.execute()
+
+    assert result["status"]=="failed"
+    assert "No invoices found for company Unknown Corp" in result["error"]
+
+def test_needs_review_agent_does_not_execute_again(monkeypatch):
+    invoice={
+        "company":"Acme Corp",
+        "invoice":"INV-1042",
+        "date":"2026-10-05",
+        "amount":48500,
+        "due_date":"2026-10-20"
+    }
+
+    monkeypatch.setattr(
+        agent_module,
+        "get_invoices",
+        lambda:[invoice]
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "save_invoice",
+        lambda invoice:"Invoice already exists"
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "verify_invoice",
+        lambda invoice:False
+    )
+
+    agent=TaskPilotAgent()
+    agent.understand("Process invoice INV-1042")
+
+    first_result=agent.execute()
+    second_result=agent.execute()
+
+    assert first_result["status"]=="needs_review"
+    assert second_result is first_result
+    assert agent.state==AgentState.NEEDS_REVIEW

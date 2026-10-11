@@ -10,6 +10,7 @@ class AgentState(Enum):
     VERIFYING = "verifying"
     COMPLETED = "completed"
     FAILED = "failed"
+    NEEDS_REVIEW = "needs_review"
 
 
 ALLOWED_TRANSITIONS = {
@@ -22,10 +23,12 @@ ALLOWED_TRANSITIONS = {
     },
     AgentState.VERIFYING: {
         AgentState.COMPLETED,
-        AgentState.FAILED
+        AgentState.FAILED,
+        AgentState.NEEDS_REVIEW
     },
     AgentState.COMPLETED: set(),
-    AgentState.FAILED: set()
+    AgentState.FAILED: set(),
+    AgentState.NEEDS_REVIEW: set()
 }
 
 

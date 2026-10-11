@@ -80,7 +80,7 @@ class TaskPilotAgent:
 
 
 
-    def _fail(self,message):
+    def _fail(self,message,**details):
         self.error=message
 
         if self.state not in (AgentState.FAILED,AgentState.COMPLETED):
@@ -96,7 +96,8 @@ class TaskPilotAgent:
             "execution_finished",
             status="failed",
             failure_reason=message,
-            final_state=self.state.value
+            final_state=self.state.value,
+            **details
         )
 
         log_event(
@@ -110,6 +111,36 @@ class TaskPilotAgent:
 
         return self._last_result
 
+    def _needs_review(self,message,**details):
+        self.error=message
+
+        if self.state!=AgentState.NEEDS_REVIEW:
+            self._set_state(AgentState.NEEDS_REVIEW)
+
+        self._last_result={
+            "status":"needs_review",
+            "error":message,
+            "state":self.state.value
+        }
+
+        self._record_audit_event(
+            "execution_finished",
+            status="needs_review",
+            failure_reason=message,
+            final_state=self.state.value,
+            **details
+        )
+
+        log_event(
+            self.logger,
+            logging.WARNING,
+            "execution_needs_review",
+            execution_id=self.execution_id,
+            reason=message,
+            state=self.state.value
+        )
+
+        return self._last_result
 
     def understand(self,task):
         if self.state!=AgentState.IDLE:
@@ -158,6 +189,28 @@ class TaskPilotAgent:
         return None
 
 
+    def find_latest_invoice(self,company):
+        invoices=get_invoices()
+
+        matching=[
+            invoice for invoice in invoices
+            if invoice.get("company","").strip().casefold()
+            ==company.strip().casefold()
+        ]
+
+        if not matching:
+            return None
+
+        latest=max(
+            matching,
+            key=lambda invoice:datetime.fromisoformat(invoice["date"])
+        )
+
+        self.invoice=latest
+        return latest
+
+
+
     def _find_invoice_with_retry(self,invoice_number,max_attempts=2):
         for attempt in range(1,max_attempts+1):
             self.lookup_attempts=attempt
@@ -188,10 +241,11 @@ class TaskPilotAgent:
 
 
     def execute(self):
-        if self.state==AgentState.COMPLETED:
-            return self._last_result
-
-        if self.state==AgentState.FAILED:
+        if self.state in (
+            AgentState.COMPLETED,
+            AgentState.FAILED,
+            AgentState.NEEDS_REVIEW
+        ):
             return self._last_result
 
         if not self.task:
@@ -202,17 +256,25 @@ class TaskPilotAgent:
 
         match=re.search(r"\bINV-\d+\b",self.task,re.IGNORECASE)
 
-        if match is None:
-            return self._fail(
-                "Could not identify an invoice number in the task"
-            )
+        company_match=re.search(
+            r"\blatest invoice from\s+(.+?)\s*$",
+            self.task,
+            re.IGNORECASE
+        )
 
-        invoice_number=match.group().upper()
+        if match is None and company_match is None:
+            return self._fail("Could not identify an invoice number in the task")
+
+        invoice_number=match.group().upper() if match else None
+        company=company_match.group(1).strip() if company_match else None
+        selection="invoice_number" if match else "latest_by_company"
 
 
         self._record_audit_event(
             "execution_started",
             invoice_number=invoice_number,
+            company=company,
+            selection=selection,
             started_at=self.started_at
         )
 
@@ -228,12 +290,19 @@ class TaskPilotAgent:
 
 
         try:
-            invoice=self._find_invoice_with_retry(invoice_number)
+
+            if selection=="invoice_number":
+                invoice=self._find_invoice_with_retry(invoice_number)
+            else:
+                invoice=self.find_latest_invoice(company)
 
             if invoice is None:
-                return self._fail(
-                    f"Invoice {invoice_number} not found"
-                )
+                if selection=="invoice_number":
+                    return self._fail(f"Invoice {invoice_number} not found")
+                return self._fail(f"No invoices found for company {company}")
+
+            invoice_number=invoice["invoice"]
+
 
             self.completed_steps.append(
                 "Find the requested invoice"
@@ -264,19 +333,24 @@ class TaskPilotAgent:
 
             try:
                 verified=verify_invoice(invoice)
+
             except Exception as exc:
-                result=self._fail(
-                    f"Invoice save was accepted, but verification errored: {type(exc).__name__}: {exc}"
-                )
-                result["save_outcome"]="accepted"
-                result["verification_status"]="error"
+                error=f"{type(exc).__name__}: {exc}"
                 self._record_audit_event(
                     "verification_error_after_save",
                     save_outcome="accepted",
                     verification_status="error",
-                    error=f"{type(exc).__name__}: {exc}"
+                    error=error
                 )
+                result=self._fail(
+                    f"Invoice save was accepted, but verification errored: {error}",
+                    save_outcome="accepted",
+                    verification_status="error"
+                )
+                result["save_outcome"]="accepted"
+                result["verification_status"]="error"
                 return result
+
 
             if not verified:
                 if already_exists:
@@ -286,21 +360,37 @@ class TaskPilotAgent:
                     )
                     event_name="duplicate_invoice_mismatch"
                     save_outcome="already_exists"
-                else:
-                    message_text=(
-                        "Invoice save was accepted, but verification failed"
-                    )
-                    event_name="verification_failed_after_save"
-                    save_outcome="accepted"
 
-                result=self._fail(message_text)
-                result["save_outcome"]=save_outcome
-                result["verification_status"]="failed"
+                    self._record_audit_event(
+                        event_name,
+                        save_outcome=save_outcome,
+                        verification_status="failed"
+                    )
+                    result=self._needs_review(
+                        message_text,
+                        save_outcome=save_outcome,
+                        verification_status="failed"
+                    )
+                    result["save_outcome"]=save_outcome
+                    result["verification_status"]="failed"
+                    return result
+
+                message_text="Invoice save was accepted, but verification failed"
+                event_name="verification_failed_after_save"
+                save_outcome="accepted"
+
                 self._record_audit_event(
                     event_name,
                     save_outcome=save_outcome,
                     verification_status="failed"
                 )
+                result=self._fail(
+                    message_text,
+                    save_outcome=save_outcome,
+                    verification_status="failed"
+                )
+                result["save_outcome"]=save_outcome
+                result["verification_status"]="failed"
                 return result
 
             self.completed_steps.append(

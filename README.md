@@ -34,6 +34,10 @@ The project is intentionally being developed as a working prototype before expan
 - Execution-start, state-transition, and failure events
 - Structured logging context for invoice execution
 - Protection against repeating a completed or failed execution
+- Latest-invoice selection by company name
+- Duplicate-invoice reconciliation
+- Human-review outcome for mismatched existing invoices
+- Audit events for verification errors and mismatches
 - Automated tests using Pytest
 
 ## Architecture
@@ -404,7 +408,7 @@ Run the complete test suite with:
 pytest -v
 ```
 
-The current suite contains 35 tests covering:
+The current suite contains 39 tests covering:
 
 - Task understanding
 - Plan creation
@@ -431,7 +435,7 @@ The current suite contains 35 tests covering:
 - Exception details in error logs
 - Structured event logging and attached context
 
-**Latest verified test result: 35 passed.**
+**Latest verified test result: 39 passed.**
 
 Run the tests again after making changes to confirm that the suite still passes.
 
