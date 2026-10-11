@@ -370,6 +370,30 @@ The final success message is:
 
 `TASKPILOT: TASK COMPLETED SUCCESSFULLY`
 
+## Demo Evidence
+
+The demonstration processes invoice `INV-1042` from the local Invoice Portal into the local Finance System.
+
+### Expected Workflow
+
+1. Start the Invoice Portal and Finance System in separate terminals.
+2. Run `python src/main.py` in a third terminal.
+3. Confirm that TaskPilot finds the invoice and extracts its details.
+4. Confirm that the Finance System reports a successful save.
+5. Confirm that independent verification returns `True`.
+6. Inspect the Finance System at `http://127.0.0.1:8001` and confirm the saved invoice is visible.
+
+### Expected Result
+
+A successful run should report:
+
+- Execution status: `completed`
+- Agent state: `completed`
+- Verification result: `True`
+- Final message: `TASKPILOT: TASK COMPLETED SUCCESSFULLY`
+
+The demonstration uses a local simulated environment. These results demonstrate the configured invoice workflow; they do not establish production readiness or general-purpose autonomous task execution.
+
 ## Running Automated Tests
 
 The project uses Pytest, configured through `pytest.ini`. The configuration adds the `src` directory to the Python import path.
@@ -511,6 +535,35 @@ Completed:
 - Preserved independent invoice verification behavior
 - Re-ran the complete test suite: 32 passing tests
 - Committed the change as `e19524f`
+
+## Technical Decisions and Assumptions
+
+### Technical Decisions
+
+- **Deterministic orchestration:** The agent follows an explicit workflow so execution behavior is predictable and testable.
+- **Separation of concerns:** Agent orchestration, browser tools, and independent verification are implemented as separate components.
+- **Bounded recovery:** Invoice lookup retries are limited to avoid uncontrolled repeated attempts.
+- **Independent verification:** The agent checks the saved invoice in the Finance System rather than relying only on the save operation's response.
+- **Explicit state management:** Validated lifecycle transitions make execution progress and terminal outcomes easier to inspect.
+- **Local simulation:** The prototype uses simulated business applications to demonstrate the workflow without accessing real financial systems.
+
+### Tools and Interfaces
+
+- **Python:** Core implementation and orchestration.
+- **Flask:** Local web applications for the Invoice Portal and Finance System.
+- **Playwright:** Browser automation and independent verification.
+- **Pytest:** Automated testing of agent behavior, state transitions, recovery, logging, and failure paths.
+- **Git:** Version control and development history.
+- **Local HTTP interfaces:** The Invoice Portal runs on port 8000 and the Finance System runs on port 8001.
+
+The current implementation does not use an LLM, external business APIs, or real company credentials. Task interpretation and planning are implemented through deterministic logic.
+
+### Assumptions
+
+- The two local applications are running and reachable during execution.
+- The demonstration invoice, `INV-1042`, exists in the Invoice Portal.
+- The Finance System exposes the saved invoice through its displayed table.
+- The prototype is intended to demonstrate execution reliability and verification, not production financial processing.
 
 ## Current Limitations
 
