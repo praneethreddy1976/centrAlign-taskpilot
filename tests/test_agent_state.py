@@ -180,3 +180,81 @@ def test_repeated_execution_does_not_duplicate_audit_events(monkeypatch):
     assert first_result["status"]=="completed"
     assert second_result is first_result
     assert agent.execution_history==history_before
+
+def test_existing_matching_invoice_is_reconciled(monkeypatch):
+    invoice={
+        "company":"Acme Corp",
+        "invoice":"INV-1042",
+        "date":"2026-10-05",
+        "amount":48500,
+        "due_date":"2026-10-20"
+    }
+
+    monkeypatch.setattr(
+        agent_module,
+        "get_invoices",
+        lambda:[invoice]
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "save_invoice",
+        lambda invoice:"Invoice already exists"
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "verify_invoice",
+        lambda invoice:True
+    )
+
+    agent=TaskPilotAgent()
+    agent.understand("Process invoice INV-1042")
+
+    result=agent.execute()
+
+    assert result["status"]=="completed"
+    assert result["verified"] is True
+    assert result["finance_message"]=="Invoice already existed and was verified"
+    assert "Enter invoice details into the finance system" not in result["completed_steps"]
+    assert any(
+        event["event"]=="duplicate_invoice_detected"
+        for event in agent.execution_history
+    )
+
+def test_existing_mismatched_invoice_requires_review(monkeypatch):
+    invoice={
+        "company":"Acme Corp",
+        "invoice":"INV-1042",
+        "date":"2026-10-05",
+        "amount":48500,
+        "due_date":"2026-10-20"
+    }
+
+    monkeypatch.setattr(
+        agent_module,
+        "get_invoices",
+        lambda:[invoice]
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "save_invoice",
+        lambda invoice:"Invoice already exists"
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "verify_invoice",
+        lambda invoice:False
+    )
+
+    agent=TaskPilotAgent()
+    agent.understand("Process invoice INV-1042")
+
+    result=agent.execute()
+
+    assert result["status"]=="failed"
+    assert "human review required" in result["error"].lower()
+    assert result["save_outcome"]=="already_exists"
+    assert result["verification_status"]=="failed"
+    assert any(
+        event["event"]=="duplicate_invoice_mismatch"
+        for event in agent.execution_history
+    )

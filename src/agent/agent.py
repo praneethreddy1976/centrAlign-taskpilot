@@ -243,15 +243,22 @@ class TaskPilotAgent:
             )
 
             message=save_invoice(invoice)
+            already_exists=message=="Invoice already exists"
 
-            if message!="Invoice saved successfully":
+            if message!="Invoice saved successfully" and not already_exists:
                 return self._fail(
                     "Invoice could not be saved"
                 )
 
-            self.completed_steps.append(
-                "Enter invoice details into the finance system"
-            )
+            if already_exists:
+                self._record_audit_event(
+                    "duplicate_invoice_detected",
+                    invoice_number=invoice_number
+                )
+            else:
+                self.completed_steps.append(
+                    "Enter invoice details into the finance system"
+                )
 
             self._set_state(AgentState.VERIFYING)
 
@@ -272,14 +279,26 @@ class TaskPilotAgent:
                 return result
 
             if not verified:
-                result=self._fail(
-                    "Invoice save was accepted, but verification failed"
-                )
-                result["save_outcome"]="accepted"
+                if already_exists:
+                    message_text=(
+                        "Invoice already exists, but its saved details "
+                        "do not match the portal. Human review required."
+                    )
+                    event_name="duplicate_invoice_mismatch"
+                    save_outcome="already_exists"
+                else:
+                    message_text=(
+                        "Invoice save was accepted, but verification failed"
+                    )
+                    event_name="verification_failed_after_save"
+                    save_outcome="accepted"
+
+                result=self._fail(message_text)
+                result["save_outcome"]=save_outcome
                 result["verification_status"]="failed"
                 self._record_audit_event(
-                    "verification_failed_after_save",
-                    save_outcome="accepted",
+                    event_name,
+                    save_outcome=save_outcome,
                     verification_status="failed"
                 )
                 return result
@@ -294,7 +313,11 @@ class TaskPilotAgent:
             self._last_result={
                 "status":"completed",
                 "invoice":invoice,
-                "finance_message":message,
+                "finance_message":(
+                    "Invoice already existed and was verified"
+                    if already_exists
+                    else message
+                ),
                 "verified":True,
                 "completed_steps":self.completed_steps.copy(),
                 "state":self.state.value

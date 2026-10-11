@@ -404,7 +404,7 @@ Run the complete test suite with:
 pytest -v
 ```
 
-The current suite contains 32 tests covering:
+The current suite contains 35 tests covering:
 
 - Task understanding
 - Plan creation
@@ -431,7 +431,7 @@ The current suite contains 32 tests covering:
 - Exception details in error logs
 - Structured event logging and attached context
 
-**Latest verified test result: 32 passed.**
+**Latest verified test result: 35 passed.**
 
 Run the tests again after making changes to confirm that the suite still passes.
 
