@@ -562,6 +562,11 @@ Completed:
 
 The current implementation does not use an LLM, external business APIs, or real company credentials. Task interpretation and planning are implemented through deterministic logic.
 
+### AI Coding Assistance
+
+ChatGPT was used as an AI coding and debugging assistant during development. The project was developed incrementally, with implementation changes reviewed and tested using the project's automated test suite. ChatGPT is not integrated into the application runtime; task interpretation and execution use deterministic logic.
+
+
 ### Assumptions
 
 - The two local applications are running and reachable during execution.
